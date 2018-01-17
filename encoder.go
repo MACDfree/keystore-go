@@ -91,18 +91,25 @@ func (kse *keyStoreEncoder) writeString(value string) error {
 }
 
 func (kse *keyStoreEncoder) writeCertificate(cert *Certificate) error {
+	// 写证书类型字符串长度，写证书类型
 	err := kse.writeString(cert.Type)
 	if err != nil {
 		return err
 	}
+
+	// 证书内容长度
 	certLen := len(cert.Content)
 	if certLen > math.MaxUint32 {
 		return ErrEncodedSequenceTooLong
 	}
+
+	// 写证书内容长度
 	err = kse.writeUint32(uint32(certLen))
 	if err != nil {
 		return err
 	}
+
+	// 写证书内容
 	err = kse.writeBytes(cert.Content)
 	if err != nil {
 		return err
@@ -111,18 +118,25 @@ func (kse *keyStoreEncoder) writeCertificate(cert *Certificate) error {
 }
 
 func (kse *keyStoreEncoder) writeTrustedCertificateEntry(alias string, tce *TrustedCertificateEntry) error {
+	// 默认写2，标识证书
 	err := kse.writeUint32(trustedCertificateTag)
 	if err != nil {
 		return err
 	}
+
+	// 写别名字符串长度，写别名字符串内容
 	err = kse.writeString(alias)
 	if err != nil {
 		return err
 	}
+
+	// 写创建时间
 	err = kse.writeUint64(uint64(timeToMilliseconds(tce.CreationDate)))
 	if err != nil {
 		return err
 	}
+
+	// 写证书
 	err = kse.writeCertificate(&tce.Certificate)
 	if err != nil {
 		return err
@@ -131,6 +145,7 @@ func (kse *keyStoreEncoder) writeTrustedCertificateEntry(alias string, tce *Trus
 }
 
 func (kse *keyStoreEncoder) writePrivateKeyEntry(alias string, pke *PrivateKeyEntry, password []byte) error {
+	// 默认写1，标识私钥
 	err := kse.writeUint32(privateKeyTag)
 	if err != nil {
 		return err
@@ -143,31 +158,44 @@ func (kse *keyStoreEncoder) writePrivateKeyEntry(alias string, pke *PrivateKeyEn
 	if err != nil {
 		return err
 	}
+
+	// 加密原生私钥
 	encodedPrivKeyContent, err := protectKey(pke.PrivKey, password)
 	if err != nil {
 		return err
 	}
+
+	// 加密后的私钥长度
 	privKeyLen := len(encodedPrivKeyContent)
 	if privKeyLen > math.MaxUint32 {
 		return ErrEncodedSequenceTooLong
 	}
+
+	// 写加密后的私钥长度
 	err = kse.writeUint32(uint32(privKeyLen))
 	if err != nil {
 		return err
 	}
+
+	// 写加密后的私钥内容
 	err = kse.writeBytes(encodedPrivKeyContent)
 	if err != nil {
 		return err
 	}
+
+	// 证书个数
 	certCount := len(pke.CertChain)
 	if certCount > math.MaxUint32 {
 		return ErrEncodedSequenceTooLong
 	}
+
+	// 写证书个数
 	err = kse.writeUint32(uint32(certCount))
 	if err != nil {
 		return err
 	}
 	for _, cert := range pke.CertChain {
+		// 写证书
 		err = kse.writeCertificate(&cert)
 		if err != nil {
 			return err
@@ -223,6 +251,7 @@ func Encode(w io.Writer, ks KeyStore, password []byte) error {
 			return ErrIncorrectEntryType
 		}
 	}
+	// 写hash值
 	err = kse.writeBytes(kse.md.Sum(nil))
 	if err != nil {
 		return err
